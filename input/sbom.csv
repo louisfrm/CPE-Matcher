@@ -1,0 +1,11 @@
+Name,Version
+Nginx,1.21.3
+Apache HTTP Server,2.4.48
+PostgreSQL,13.4
+Redis,6.2.5
+Docker,20.10.8
+Kubernetes,1.21.0
+Node.js,14.17.6
+Python,3.9.7
+Git,2.33.0
+OpenSSL,1.1.1l

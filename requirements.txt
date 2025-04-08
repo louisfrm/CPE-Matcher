@@ -1,0 +1,5 @@
+sentence_transformers==3.1.0
+torch==2.5.1
+tqdm==4.66.6
+transformers==4.46.1
+pandas==2.2.3
