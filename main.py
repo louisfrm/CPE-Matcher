@@ -29,6 +29,12 @@ def safe_pickle_load(file_path):
             return CPU_Unpickler(f).load()
 
 
+def safe_str(text):
+    if pd.isna(text):
+        return ""
+    return str(text).strip()
+
+
 # ==============================================================================
 # INITIALIZATION
 # ==============================================================================
@@ -50,6 +56,8 @@ print(f"Selected input file: {input_file}")
 
 # Read the input CSV file (assumes same columns: Name and Version)
 data_df = pd.read_csv(input_file)
+data_df["Name"] = data_df["Name"].astype(str).str.strip()
+data_df["Version"] = data_df["Version"].apply(safe_str)
 # Initialize result columns (to store the matching version and the CPE code)
 data_df["CPE Code"] = None
 data_df["CPE Title"] = None
@@ -65,6 +73,8 @@ def parse_version_str(version_str):
 
     Returns None if the string does not comply with PEP 440.
     """
+    if not isinstance(version_str, str) or not version_str.strip():
+        return None
     try:
         return Version(version_str.strip())
     except InvalidVersion:
