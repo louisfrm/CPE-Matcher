@@ -226,7 +226,7 @@ for index, row in tqdm.tqdm(data_df.iterrows(), total=data_df.shape[0], desc="Ma
 
         best_key, best_version_entry, _, _ = selected
         data_df.at[index, "CPE Code"] = best_version_entry[2]
-        data_df.at[index, "CPE Title"] = soft_versions_db[best_key]["clean_title"]
+        data_df.at[index, "CPE Title"] = best_version_entry[3]
         print(f"✅ Final Match: {soft_versions_db[best_key]['clean_title']} {best_version_entry[0]} → {best_version_entry[2]}")
     else:
         # No valid match found

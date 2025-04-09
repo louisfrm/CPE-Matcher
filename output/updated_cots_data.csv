@@ -1,11 +1,11 @@
 Name,Version,CPE Code,CPE Title
-Nginx,1.21.3,cpe:2.3:a:nginx:nginx:1.21.3:*:*:*:*:*:*:*,Nginx
-Apache HTTP Server,2.4.48,cpe:2.3:a:apache:http_server:2.4.48:*:*:*:*:*:*:*,Apache Software Foundation Apache HTTP Server
-PostgreSQL,13.4,cpe:2.3:a:postgresql:postgresql:13.4:*:*:*:*:*:*:*,PostgreSQL
-Redis,6.2.5,cpe:2.3:a:redis:redis:6.2.5:*:*:*:*:*:*:*,Redis
-Docker CLI,20.10.8,cpe:2.3:a:docker:command_line_interface:20.10.8:*:*:*:*:*:*:*,Docker Command Line Interface (CLI)
-Kubernetes,1.21.0,cpe:2.3:a:kubernetes:kubernetes:1.21.0:-:*:*:*:*:*:*,Kubernetes
-Node.js,14.17.6,cpe:2.3:a:nodejs:node.js:14.17.6:*:*:*:lts:*:*:*,Nodejs Node.js
-Python,3.9.7,cpe:2.3:a:python:python:3.9.7:*:*:*:*:*:*:*,Python
-Git SCM,2.33.0,cpe:2.3:a:git-scm:git:2.33.0:-:*:*:*:*:*:*,gitscm git
-OpenSSL,1.1.1l,cpe:2.3:a:openssl:openssl:1.1.1l:*:*:*:*:*:*:*,OpenSSL Project OpenSSL
+Nginx,1.21.3,cpe:2.3:a:nginx:nginx:1.21.3:*:*:*:*:*:*:*,Nginx 1.21.3
+Apache HTTP Server,2.4.48,cpe:2.3:a:apache:http_server:2.4.48:*:*:*:*:*:*:*,Apache Software Foundation Apache HTTP Server 2.4.48
+PostgreSQL,13.4,cpe:2.3:a:postgresql:postgresql:13.4:*:*:*:*:*:*:*,PostgreSQL 13.4
+Redis,6.2.5,cpe:2.3:a:redis:redis:6.2.5:*:*:*:*:*:*:*,Redis 6.2.5
+Docker CLI,20.10.8,cpe:2.3:a:docker:command_line_interface:20.10.8:*:*:*:*:*:*:*,Docker Command Line Interface (CLI) 20.10.8
+Kubernetes,1.21.0,cpe:2.3:a:kubernetes:kubernetes:1.21.0:-:*:*:*:*:*:*,Kubernetes 1.21.0
+Node.js,14.17.6,cpe:2.3:a:nodejs:node.js:14.17.6:*:*:*:lts:*:*:*,Nodejs Node.js 14.17.6 LTS Edition
+Python,3.9.7,cpe:2.3:a:python:python:3.9.7:*:*:*:*:*:*:*,Python 3.9.7
+Git SCM,2.33.0,cpe:2.3:a:git-scm:git:2.33.0:-:*:*:*:*:*:*,git-scm git 2.33.0
+OpenSSL,1.1.1l,cpe:2.3:a:openssl:openssl:1.1.1l:*:*:*:*:*:*:*,OpenSSL Project OpenSSL 1.1.1l
