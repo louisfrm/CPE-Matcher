@@ -158,40 +158,82 @@ else:
 # ==============================================================================
 # MATCHING PROCESS FOR EACH ROW IN THE CSV
 # ==============================================================================
-for index, row in tqdm.tqdm(
-    data_df.iterrows(), total=data_df.shape[0], desc="Matching CPE codes"
-):
+# Matching CPE codes for each software in the input CSV
+for index, row in tqdm.tqdm(data_df.iterrows(), total=data_df.shape[0], desc="Matching CPE codes"):
     input_name = row["Name"]
     input_version = row["Version"]
+    print(f"\n\nInput: {input_name} - Version: {input_version}")
 
-    # Compute the embedding of the given name
+    # Compute the embedding of the input name
     input_name_emb = model.encode(input_name, convert_to_tensor=True)
 
-    # Search for the best software in soft_versions_db by similarity on clean_title
-    best_candidate_key = None
-    best_sim = -1
+    # Compute cosine similarity between input name and all known software titles
+    sim_list = []
     for key, info in soft_versions_db.items():
         sim = util.cos_sim(input_name_emb, info["embedding"]).item()
-        if sim > best_sim:
-            best_sim = sim
-            best_candidate_key = key
+        sim_list.append((key, sim))
 
-    if best_candidate_key is not None:
-        candidate_info = soft_versions_db[best_candidate_key]
-        # Use the match_version function to select the best version among candidates
-        best_version_entry = match_version(input_version, candidate_info["versions"])
-        if best_version_entry is not None:
-            # Assign the CPE code and (clean) title from the database
-            data_df.at[index, "CPE Code"] = best_version_entry[2]
-            data_df.at[index, "CPE Title"] = candidate_info["clean_title"]
+    # Select the top 3 most similar software titles
+    top3_keys = sorted(sim_list, key=lambda x: x[1], reverse=True)[:3]
+    print("Top 3 candidate titles:")
+    for k, s in top3_keys:
+        print(f"  - {soft_versions_db[k]['clean_title']} (score={s:.4f})")
+
+    version_matches = []
+
+    def version_distance(v1, v2):
+        def version_to_tuple(v):
+            return tuple(int(part) for part in str(v).split('.') if part.isdigit())
+        t1 = version_to_tuple(v1)
+        t2 = version_to_tuple(v2)
+        length = max(len(t1), len(t2))
+        t1 += (0,) * (length - len(t1))
+        t2 += (0,) * (length - len(t2))
+        return sum(abs(a - b) for a, b in zip(t1, t2))
+
+    for key, name_sim in top3_keys:
+        info = soft_versions_db[key]
+        best_version = match_version(input_version, info["versions"])
+        if best_version is not None:
+            parsed_input_version = parse_version_str(input_version)
+
+            if parsed_input_version is not None and best_version[1] is not None:
+                if parsed_input_version == best_version[1]:
+                    dist = 0
+                else:
+                    dist = version_distance(parsed_input_version, best_version[1])
+            else:
+                input_version_emb = model.encode(input_version, convert_to_tensor=True)
+                best_version_emb = model.encode(best_version[0], convert_to_tensor=True)
+                dist = 1 - util.cos_sim(input_version_emb, best_version_emb).item()
+
+            version_matches.append((key, best_version, dist, name_sim))
+            print(f"  → Version candidate from '{soft_versions_db[key]['clean_title']}': {best_version[0]} (CPE: {best_version[2]}) | dist={dist:.4f} | sim={name_sim:.4f}")
+
+    if version_matches:
+        version_matches.sort(key=lambda x: x[2])
+        min_dist = version_matches[0][2]
+
+        # Check for multiple candidates with the same minimal distance
+        tied = [vm for vm in version_matches if abs(vm[2] - min_dist) < 1e-6]
+
+        if len(tied) == 1:
+            selected = tied[0]
         else:
-            # Fallback: use only the software without refining the version
-            data_df.at[index, "CPE Code"] = None
-            data_df.at[index, "CPE Title"] = candidate_info["clean_title"]
+            # Break ties using the highest title similarity
+            selected = max(tied, key=lambda x: x[3])
+            print("  ⚠️ Tie detected, selecting candidate with best title similarity")
+
+        best_key, best_version_entry, _, _ = selected
+        data_df.at[index, "CPE Code"] = best_version_entry[2]
+        data_df.at[index, "CPE Title"] = soft_versions_db[best_key]["clean_title"]
+        print(f"✅ Final Match: {soft_versions_db[best_key]['clean_title']} {best_version_entry[0]} → {best_version_entry[2]}")
     else:
-        # No match found, leave as default
+        # No valid match found
         data_df.at[index, "CPE Code"] = None
         data_df.at[index, "CPE Title"] = None
+        print("❌ No match found")
+
 
 # ==============================================================================
 # SAVE THE UPDATED DATAFRAME
