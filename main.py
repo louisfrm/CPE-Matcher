@@ -189,7 +189,7 @@ else:
 # ==============================================================================
 # MATCHING PROCESS FOR EACH ROW IN THE CSV
 # ==============================================================================
-# Matching CPE codes for each software in the input CSV
+
 for index, row in tqdm.tqdm(
     data_df.iterrows(), total=data_df.shape[0], desc="Matching CPE codes"
 ):
@@ -197,7 +197,7 @@ for index, row in tqdm.tqdm(
     input_version = row["Version"]
     print(f"\n\nInput: {input_name} - Version: {input_version}")
 
-    # Compute the embedding of the input name
+    # Encode the input software name
     input_name_emb = model.encode(input_name, convert_to_tensor=True)
 
     # Compute cosine similarity between input name and all known software titles
@@ -212,62 +212,48 @@ for index, row in tqdm.tqdm(
     for k, s in top3_keys:
         print(f"  - {soft_versions_db[k]['clean_title']} (score={s:.4f})")
 
-    version_matches = []
+    exact_matches = []
+    fallback_matches = []
 
-    def version_distance(v1, v2):
-        def version_to_tuple(v):
-            return tuple(int(part) for part in str(v).split(".") if part.isdigit())
-
-        t1 = version_to_tuple(v1)
-        t2 = version_to_tuple(v2)
-        length = max(len(t1), len(t2))
-        t1 += (0,) * (length - len(t1))
-        t2 += (0,) * (length - len(t2))
-        return sum(abs(a - b) for a, b in zip(t1, t2))
+    parsed_input_version = parse_version_str(input_version)
 
     for key, name_sim in top3_keys:
         info = soft_versions_db[key]
         best_version = match_version(input_version, info["versions"])
         if best_version is not None:
-            parsed_input_version = parse_version_str(input_version)
-
-            if parsed_input_version is not None and best_version[1] is not None:
-                if parsed_input_version == best_version[1]:
-                    dist = 0
-                else:
-                    dist = version_distance(parsed_input_version, best_version[1])
-            else:
-                input_version_emb = model.encode(input_version, convert_to_tensor=True)
-                best_version_emb = model.encode(best_version[0], convert_to_tensor=True)
-                dist = 1 - util.cos_sim(input_version_emb, best_version_emb).item()
-
-            version_matches.append((key, best_version, dist, name_sim))
+            matched_parsed = best_version[1]
+            # If both versions are valid and equal, it's an exact match
+            if parsed_input_version is not None and matched_parsed is not None:
+                if parsed_input_version == matched_parsed:
+                    exact_matches.append((key, best_version, name_sim))
+                    print(
+                        f"✅ Exact match: {info['clean_title']} {best_version[0]} → {best_version[2]}"
+                    )
+                    continue
+            # Otherwise, treat as fallback match (either unparsed or different)
+            fallback_matches.append((key, best_version, name_sim))
             print(
-                f"  → Version candidate from '{soft_versions_db[key]['clean_title']}': {best_version[0]} (CPE: {best_version[2]}) | dist={dist:.4f} | sim={name_sim:.4f}"
+                f"➖ Fallback match: {info['clean_title']} {best_version[0]} (CPE: {best_version[2]}) | sim={name_sim:.4f}"
             )
 
-    if version_matches:
-        version_matches.sort(key=lambda x: x[2])
-        min_dist = version_matches[0][2]
+    # Final selection based on priority:
+    # 1. Best among exact matches (highest title similarity)
+    # 2. Best among fallback matches (highest title similarity)
+    if exact_matches:
+        selected = max(exact_matches, key=lambda x: x[2])
+    elif fallback_matches:
+        selected = max(fallback_matches, key=lambda x: x[2])
+    else:
+        selected = None
 
-        # Check for multiple candidates with the same minimal distance
-        tied = [vm for vm in version_matches if abs(vm[2] - min_dist) < 1e-6]
-
-        if len(tied) == 1:
-            selected = tied[0]
-        else:
-            # Break ties using the highest title similarity
-            selected = max(tied, key=lambda x: x[3])
-            print("  ⚠️ Tie detected, selecting candidate with best title similarity")
-
-        best_key, best_version_entry, _, _ = selected
+    if selected:
+        best_key, best_version_entry, _ = selected
         data_df.at[index, "CPE Code"] = best_version_entry[2]
         data_df.at[index, "CPE Title"] = best_version_entry[3]
         print(
-            f"✅ Final Match: {soft_versions_db[best_key]['clean_title']} {best_version_entry[0]} → {best_version_entry[2]}"
+            f"🎯 Final Match: {soft_versions_db[best_key]['clean_title']} {best_version_entry[0]} → {best_version_entry[2]}"
         )
     else:
-        # No valid match found
         data_df.at[index, "CPE Code"] = None
         data_df.at[index, "CPE Title"] = None
         print("❌ No match found")
