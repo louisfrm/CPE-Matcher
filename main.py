@@ -5,6 +5,28 @@ from sentence_transformers import SentenceTransformer, util
 import pickle
 import tqdm
 from packaging.version import Version, InvalidVersion
+import torch
+
+# ==============================================================================
+# UTILS
+# ==============================================================================
+
+
+class CPU_Unpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module == "torch.storage" and name == "_load_from_bytes":
+            import io
+
+            return lambda b: torch.load(io.BytesIO(b), map_location="cpu")
+        return super().find_class(module, name)
+
+
+def safe_pickle_load(file_path):
+    with open(file_path, "rb") as f:
+        if torch.cuda.is_available():
+            return pickle.load(f)
+        else:
+            return CPU_Unpickler(f).load()
 
 
 # ==============================================================================
@@ -107,8 +129,7 @@ def match_version(input_version, candidate_versions):
 soft_db_pickle_file = "soft_versions_db.pkl"
 
 if os.path.exists(soft_db_pickle_file):
-    with open(soft_db_pickle_file, "rb") as f:
-        soft_versions_db = pickle.load(f)
+    soft_versions_db = safe_pickle_load(soft_db_pickle_file)
 else:
     soft_versions_db = {}
     # Parse the official CPE dictionary XML file
@@ -159,7 +180,9 @@ else:
 # MATCHING PROCESS FOR EACH ROW IN THE CSV
 # ==============================================================================
 # Matching CPE codes for each software in the input CSV
-for index, row in tqdm.tqdm(data_df.iterrows(), total=data_df.shape[0], desc="Matching CPE codes"):
+for index, row in tqdm.tqdm(
+    data_df.iterrows(), total=data_df.shape[0], desc="Matching CPE codes"
+):
     input_name = row["Name"]
     input_version = row["Version"]
     print(f"\n\nInput: {input_name} - Version: {input_version}")
@@ -183,7 +206,8 @@ for index, row in tqdm.tqdm(data_df.iterrows(), total=data_df.shape[0], desc="Ma
 
     def version_distance(v1, v2):
         def version_to_tuple(v):
-            return tuple(int(part) for part in str(v).split('.') if part.isdigit())
+            return tuple(int(part) for part in str(v).split(".") if part.isdigit())
+
         t1 = version_to_tuple(v1)
         t2 = version_to_tuple(v2)
         length = max(len(t1), len(t2))
@@ -208,7 +232,9 @@ for index, row in tqdm.tqdm(data_df.iterrows(), total=data_df.shape[0], desc="Ma
                 dist = 1 - util.cos_sim(input_version_emb, best_version_emb).item()
 
             version_matches.append((key, best_version, dist, name_sim))
-            print(f"  → Version candidate from '{soft_versions_db[key]['clean_title']}': {best_version[0]} (CPE: {best_version[2]}) | dist={dist:.4f} | sim={name_sim:.4f}")
+            print(
+                f"  → Version candidate from '{soft_versions_db[key]['clean_title']}': {best_version[0]} (CPE: {best_version[2]}) | dist={dist:.4f} | sim={name_sim:.4f}"
+            )
 
     if version_matches:
         version_matches.sort(key=lambda x: x[2])
@@ -227,7 +253,9 @@ for index, row in tqdm.tqdm(data_df.iterrows(), total=data_df.shape[0], desc="Ma
         best_key, best_version_entry, _, _ = selected
         data_df.at[index, "CPE Code"] = best_version_entry[2]
         data_df.at[index, "CPE Title"] = best_version_entry[3]
-        print(f"✅ Final Match: {soft_versions_db[best_key]['clean_title']} {best_version_entry[0]} → {best_version_entry[2]}")
+        print(
+            f"✅ Final Match: {soft_versions_db[best_key]['clean_title']} {best_version_entry[0]} → {best_version_entry[2]}"
+        )
     else:
         # No valid match found
         data_df.at[index, "CPE Code"] = None
